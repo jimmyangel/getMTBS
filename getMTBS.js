@@ -20,7 +20,6 @@ const options = cli.parse({
     help: ['h', 'Display help and usage details']
 });
 
-
 if (options.help) {
   console.log('getMTBS - Get MTBS data\n')
   cli.getUsage()
@@ -29,14 +28,32 @@ if (options.help) {
 }
 
 function doGetMTBS (path, year, state) {
-  let MTBSUrl = 'https://edcintl.cr.usgs.gov/geoserver/mtbs/ows?service=WFS&version=2.0.0&request=GetPropertyValue&typeName=mtbs:mtbs_fire_polygons_' +
-    year + '&valueReference=fire_id&&outputFormat=csv&CQL_FILTER=fire_id%20LIKE%20%27' + state + '%25%27'
   log.info(`Getting MTBS data for ${state} as of ${year}`)
+  let MTBSUrlBase = 'https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/'
 
   retrieveMTBSListOfFires(year, state).then((MTBSListOfFires) => {
-    console.log(MTBSListOfFires)
+
+    let dp
+    let p = []
+
+    for (var i = 0; i < MTBSListOfFires.length; i++) {
+
+      (function (i) {
+        dp = new ThrottledPromise((resolve, reject) => {
+          retrieveMTBSDetails(MTBSListOfFires[i].year, MTBSListOfFires[i].fireId).then(MTBSDetails => {
+            resolve(MTBSDetails)
+          })
+        })
+      })(i)
+
+      p.push(dp)
+    }
+    ThrottledPromise.all(p, MAX_PROMISES).then(values => {
+      console.log(values)
+    })
+
   }).catch(error => {
-    console.log(error)
+    log.fatal(error)
   })
 }
 
@@ -44,7 +61,7 @@ function retrieveMTBSListOfFires(year, state) {
   let MTBSUrl = 'https://edcintl.cr.usgs.gov/geoserver/mtbs/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=mtbs:mtbs_fire_polygons_' +
     year + '&propertyName=fire_id,year&outputFormat=json&CQL_FILTER=fire_id%20LIKE%20%27' + state + '%25%27'
   let listData = []
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     axios.get(MTBSUrl).then(response => {
       response.data.features.forEach(f => {
         listData.push({year: f.properties.year, fireId: f.properties.fire_id})
@@ -54,4 +71,52 @@ function retrieveMTBSListOfFires(year, state) {
       return reject(error)
     })
   })
+}
+
+function retrieveMTBSDetails(year, fireId) {
+  let MTBSUrl = 'https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/' + year + '/fire_level_tar_files/' + fireId.toLowerCase() + '.zip'
+
+  return new Promise((resolve, reject) => {
+    axios.get(MTBSUrl, { responseType: 'arraybuffer' }).then(response => {
+      log.info(`Processing ${fireId}`)
+      let resultData = {}
+      unzipper.Open.buffer(response.data).then(directory => {
+        //console.log('directory', directory.files)
+        let files = directory.files.filter(d => d.path.includes('_desc.dbf') || d.path.includes('_rep.dbf'))
+        let p = []
+        files.forEach(file => {
+          file.buffer().then(content => {
+            console.log('and here is the content ', file.path)
+            //console.log(file.path.substring(file.path.lastIndexOf('_')+1, file.path.lastIndexOf('.')))
+            let dbf = file.path.substring(file.path.lastIndexOf('_')+1, file.path.lastIndexOf('.'))
+            p.push(getDbfRecords(dbf, content))
+          })
+        })
+        Promise.all(p).then(result => {
+          console.log('hey', result)
+        })
+      })
+      resolve('hola')
+    })
+  })
+
+
+}
+
+function getDbfRecords(dbf, entry) {
+
+  return new Promise((resolve, reject) => {
+    let dbfRecords = {}
+    dbfRecords[dbf] = []
+    shapefile.openDbf(entry)
+      .then(source => source.read()
+        .then(function log(result) {
+          if (result.done) {
+            return resolve(dbfRecords)
+          }
+          dbfRecords[dbf].push(result.value);
+          return source.read().then(log)
+        }))
+      .catch(error => console.error(error.stack))
+    })
 }
