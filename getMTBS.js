@@ -36,7 +36,8 @@ function doGetMTBS (path, year, state) {
     let dp
     let p = []
 
-    for (var i = 0; i < MTBSListOfFires.length; i++) {
+    for (var i = 0; i < 3; i++) {
+    //for (var i = 0; i < MTBSListOfFires.length; i++) {
 
       (function (i) {
         dp = new ThrottledPromise((resolve, reject) => {
@@ -82,25 +83,37 @@ function retrieveMTBSDetails(year, fireId) {
       let resultData = {}
       unzipper.Open.buffer(response.data).then(directory => {
         //console.log('directory', directory.files)
-        let files = directory.files.filter(d => d.path.includes('_desc.dbf') || d.path.includes('_rep.dbf'))
         let p = []
+        let files = directory.files.filter(d => d.path.includes('_desc.dbf') || d.path.includes('_rep.dbf'))
         files.forEach(file => {
-          file.buffer().then(content => {
-            console.log('and here is the content ', file.path)
-            //console.log(file.path.substring(file.path.lastIndexOf('_')+1, file.path.lastIndexOf('.')))
-            let dbf = file.path.substring(file.path.lastIndexOf('_')+1, file.path.lastIndexOf('.'))
-            p.push(getDbfRecords(dbf, content))
+          p.push(xtractDbfFile(file))
+        })
+
+        Promise.all(p).then(dbfFiles => {
+          let p = []
+          dbfFiles.forEach(dbfFile => {
+            p.push(getDbfRecords(dbfFile.dbf, dbfFile.content))
+          })
+          Promise.all(p).then(dbfRecordsArray => {
+            resolve(dbfRecordsArray)
           })
         })
-        Promise.all(p).then(result => {
-          console.log('hey', result)
-        })
       })
-      resolve('hola')
     })
   })
 
 
+}
+
+function xtractDbfFile(file) {
+  return new Promise((resolve, reject) => {
+    file.buffer().then(content => {
+      resolve({
+        dbf: file.path.substring(file.path.lastIndexOf('_')+1, file.path.lastIndexOf('.')),
+        content: content
+      })
+    })
+  })
 }
 
 function getDbfRecords(dbf, entry) {
@@ -112,7 +125,9 @@ function getDbfRecords(dbf, entry) {
       .then(source => source.read()
         .then(function log(result) {
           if (result.done) {
-            return resolve(dbfRecords)
+            //console.log(dbfRecords)
+            resolve(dbfRecords)
+            return
           }
           dbfRecords[dbf].push(result.value);
           return source.read().then(log)
