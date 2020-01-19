@@ -82,7 +82,6 @@ function retrieveMTBSDetails(year, fireId) {
       log.info(`Processing ${fireId}`)
       let resultData = {}
       unzipper.Open.buffer(response.data).then(directory => {
-        //console.log('directory', directory.files)
         let p = []
         let files = directory.files.filter(d => d.path.includes('_desc.dbf') || d.path.includes('_rep.dbf'))
         files.forEach(file => {
@@ -95,6 +94,7 @@ function retrieveMTBSDetails(year, fireId) {
             p.push(getDbfRecords(dbfFile.dbf, dbfFile.content))
           })
           Promise.all(p).then(dbfRecordsArray => {
+            console.log(dbfRecordsArray)
             resolve(dbfRecordsArray)
           })
         })
