@@ -1,11 +1,8 @@
 'use strict'
 
-const fs = require('fs')
-
 const cli = require('cli')
 const log = require('simple-node-logger').createSimpleLogger()
 const axios = require('axios')
-const xml2js = require('xml2js')
 
 const unzipper = require('unzipper')
 const shapefile = require('shapefile')
@@ -29,7 +26,6 @@ if (options.help) {
 
 function doGetMTBS (path, year, state) {
   log.info(`Getting MTBS data for ${state} as of ${year}`)
-  let MTBSUrlBase = 'https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/'
 
   retrieveMTBSListOfFires(year, state).then((MTBSListOfFires) => {
 
@@ -80,7 +76,6 @@ function retrieveMTBSDetails(year, fireId) {
   return new Promise((resolve, reject) => {
     axios.get(MTBSUrl, { responseType: 'arraybuffer' }).then(response => {
       log.info(`Processing ${fireId}`)
-      let resultData = {}
       unzipper.Open.buffer(response.data).then(directory => {
         let p = []
         let files = directory.files.filter(d => d.path.includes('_desc.dbf') || d.path.includes('_rep.dbf'))
