@@ -9,7 +9,7 @@ const axios = require('axios')
 const unzipper = require('unzipper')
 const shapefile = require('shapefile')
 const ThrottledPromise = require('throttled-promise')
-const {execSync} = require('child_process')
+const exec = require('util').promisify(require('child_process').exec)
 
 const MAX_PROMISES = 5
 
@@ -94,7 +94,6 @@ function retrieveMTBSDetails(year, fireId, path) {
             p.push(getDbfRecords(dbfFile.dbf, dbfFile.content))
           })
           Promise.all(p).then(dbfRecordsArray => {
-            //console.log(dbfRecordsArray)
             let feature = buildFeature(dbfRecordsArray)
             if (feature) {
               // Grab the kmz
@@ -138,14 +137,13 @@ function getDbfRecords(dbf, entry) {
       .then(source => source.read()
         .then(function log(result) {
           if (result.done) {
-            //console.log(dbfRecords)
             resolve(dbfRecords)
             return
           }
           dbfRecords[dbf].push(result.value);
           return source.read().then(log)
         }))
-      .catch(error => console.error(error.stack))
+      .catch(error => log.fatal(error.stack))
     })
 }
 
@@ -213,8 +211,11 @@ function processKmzFile (kmzFile, destination) {
   return new Promise((resolve, reject) => {
     kmzFile.buffer().then(content => {
       fs.outputFile(destination, content).then(() => {
-        execSync(`zip -d ${destination} *_refl.png`)
-        resolve()
+        exec(`zip -d ${destination} *_refl.png`).then(() => {
+          resolve()
+        }).catch(error => {
+          return reject (error)
+        })
       }).catch(error => {
         return reject('Kmz file write error')
       })
