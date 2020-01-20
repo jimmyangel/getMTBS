@@ -29,19 +29,19 @@ if (options.help) {
 function doGetMTBS (path, year, state) {
   log.info(`Getting MTBS data for ${state} as of ${year}`)
 
+  fs.removeSync('./' + path + '/kmz')
+
   retrieveMTBSListOfFires(year, state).then((MTBSListOfFires) => {
-    let dp
     let p = []
     for (let [i, fire] of MTBSListOfFires.entries()) {
-      if (i === 3) break; // Temporary limit
-        dp = new ThrottledPromise((resolve, reject) => {
-          retrieveMTBSDetails(fire.year, fire.fireId).then(MTBSDetails => {
-            resolve(MTBSDetails)
-          }).catch(error => {
-            return reject(error)
-          })
+      if (i === 2) break; // Temporary limit
+      p.push(new ThrottledPromise((resolve, reject) => {
+        retrieveMTBSDetails(fire.year, fire.fireId, path).then(MTBSDetails => {
+          resolve(MTBSDetails)
+        }).catch(error => {
+          return reject(error)
         })
-      p.push(dp)
+      }))
     }
     ThrottledPromise.all(p, MAX_PROMISES).then(values => {
       let destination = './' + path + '/' + 'MTBS.json'
@@ -74,7 +74,7 @@ function retrieveMTBSListOfFires(year, state) {
   })
 }
 
-function retrieveMTBSDetails(year, fireId) {
+function retrieveMTBSDetails(year, fireId, path) {
   let MTBSUrl = 'https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/' + year + '/fire_level_tar_files/' + fireId.toLowerCase() + '.zip'
 
   return new Promise((resolve, reject) => {
@@ -96,12 +96,22 @@ function retrieveMTBSDetails(year, fireId) {
             //console.log(dbfRecordsArray)
             let feature = buildFeature(dbfRecordsArray)
             if (feature) {
+              // Grab the kmz
+              let kmzFile = directory.files.find(d => d.path.endsWith('.kmz'))
+              feature.properties.kmzLink = '/' + kmzFile.path
+              processKmzFile(kmzFile, './' + path + '/kmz' + feature.properties.kmzLink).then(() => {
+                log.info(`kmz file ${kmzFile.path} xtracted`)
+              }).catch(error => {
+                log.fatal(error)
+                return reject(error)
+              })
               resolve(feature)
             } else {
               return reject('Invalid dbfRecordsArray')
             }
           })
         })
+
       })
     })
   })
@@ -196,4 +206,16 @@ function buildFeatureCollection (features) {
     return (new Date(a.properties.ignitionDate).getTime() - (new Date(b.properties.ignitionDate)).getTime())
   })
   return featureCollection
+}
+
+function processKmzFile (kmzFile, destination) {
+  return new Promise((resolve, reject) => {
+    kmzFile.buffer().then(content => {
+      fs.outputFile(destination, content).then(() => {
+        resolve()
+      }).catch(error => {
+        return reject('Kmz file write error')
+      })
+    })
+  })
 }
