@@ -32,16 +32,18 @@ function doGetMTBS (path, year, state) {
     let dp
     let p = []
 
-    for (var i = 0; i < 3; i++) {
+    //for (let i = 0; i < 3; i++) {
     //for (var i = 0; i < MTBSListOfFires.length; i++) {
+    for (let [i, fire] of MTBSListOfFires.entries()) {
+      if (i === 3) break;
 
-      (function (i) {
+      //(function (i) {
         dp = new ThrottledPromise((resolve, reject) => {
-          retrieveMTBSDetails(MTBSListOfFires[i].year, MTBSListOfFires[i].fireId).then(MTBSDetails => {
+          retrieveMTBSDetails(fire.year, fire.fireId).then(MTBSDetails => {
             resolve(MTBSDetails)
           })
         })
-      })(i)
+      //})(i)
 
       p.push(dp)
     }
