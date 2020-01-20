@@ -9,6 +9,7 @@ const axios = require('axios')
 const unzipper = require('unzipper')
 const shapefile = require('shapefile')
 const ThrottledPromise = require('throttled-promise')
+const {execSync} = require('child_process')
 
 const MAX_PROMISES = 5
 
@@ -212,6 +213,7 @@ function processKmzFile (kmzFile, destination) {
   return new Promise((resolve, reject) => {
     kmzFile.buffer().then(content => {
       fs.outputFile(destination, content).then(() => {
+        execSync(`zip -d ${destination} *_refl.png`)
         resolve()
       }).catch(error => {
         return reject('Kmz file write error')
