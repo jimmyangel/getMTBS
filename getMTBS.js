@@ -1,5 +1,7 @@
 'use strict'
 
+const fs = require('fs-extra')
+
 const cli = require('cli')
 const log = require('simple-node-logger').createSimpleLogger()
 const axios = require('axios')
@@ -28,25 +30,29 @@ function doGetMTBS (path, year, state) {
   log.info(`Getting MTBS data for ${state} as of ${year}`)
 
   retrieveMTBSListOfFires(year, state).then((MTBSListOfFires) => {
-
     let dp
     let p = []
-
     for (let [i, fire] of MTBSListOfFires.entries()) {
       if (i === 3) break; // Temporary limit
-
         dp = new ThrottledPromise((resolve, reject) => {
           retrieveMTBSDetails(fire.year, fire.fireId).then(MTBSDetails => {
             resolve(MTBSDetails)
+          }).catch(error => {
+            return reject(error)
           })
         })
-
       p.push(dp)
     }
     ThrottledPromise.all(p, MAX_PROMISES).then(values => {
-      console.log(values)
+      let destination = './' + path + '/' + 'MTBS.json'
+      fs.outputFile(destination, JSON.stringify(buildFeatureCollection(values), null, 2)).then(() => {
+        log.info(destination + ' generated')
+      }).catch(error => {
+        log.fatal(error)
+      })
+    }).catch(error => {
+      log.fatal(error)
     })
-
   }).catch(error => {
     log.fatal(error)
   })
@@ -87,15 +93,18 @@ function retrieveMTBSDetails(year, fireId) {
             p.push(getDbfRecords(dbfFile.dbf, dbfFile.content))
           })
           Promise.all(p).then(dbfRecordsArray => {
-            console.log(dbfRecordsArray)
-            resolve(dbfRecordsArray)
+            //console.log(dbfRecordsArray)
+            let feature = buildFeature(dbfRecordsArray)
+            if (feature) {
+              resolve(feature)
+            } else {
+              return reject('Invalid dbfRecordsArray')
+            }
           })
         })
       })
     })
   })
-
-
 }
 
 function xtractDbfFile(file) {
@@ -127,4 +136,64 @@ function getDbfRecords(dbf, entry) {
         }))
       .catch(error => console.error(error.stack))
     })
+}
+
+function buildFeature(dbfRecordsArray) {
+  if (dbfRecordsArray.length != 2) return false
+
+  let feature = {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Point',
+      coordinates: []
+    }
+  }
+
+  dbfRecordsArray.forEach((item, i) => {
+    if (item.desc) { // desc record
+      feature.properties.id = item.desc[0].FIRE_ID
+      feature.properties.name = item.desc[0].FIRENAME
+      feature.properties.hydrologicUnit = item.desc[0].HUC4_NAME
+      feature.properties.acres = item.desc[0].R_ACRES
+      feature.properties.ignitionDate = new Date(item.desc[0].FIRE_YEAR, item.desc[0].FIRE_MON-1, item.desc[0].FIRE_DAY)
+      feature.properties.severityUnburnedAcres = item.desc[0].CLS1_ACRES
+      feature.properties.severityLowAcres = item.desc[0].CLS2_ACRES
+      feature.properties.severityModerateAcres = item.desc[0].CLS3_ACRES
+      feature.properties.severityHighAcres = item.desc[0].CLS4_ACRES
+      feature.properties.severityIncreasedGreenesAcres = item.desc[0].CLS5_ACRES
+      feature.properties.nonProcessingMaskAcres = item.desc[0].CLS6_ACRES
+      feature.properties.kmzLink = 'nothing for now'
+      feature.geometry.coordinates = [item.desc[0].LONG, item.desc[0].LAT]
+
+    } else { // rep record
+      let forestAcres = 0
+      item.rep.forEach(function(r) {
+        if (r.NLCD_L1_DE === 'Forest') {
+          forestAcres += r.R_ACRES
+        }
+      })
+      feature.properties.forestAcres = Number(forestAcres.toFixed(2))
+    }
+  });
+  return feature
+}
+
+function buildFeatureCollection (features) {
+  let featureCollection = {
+    type: 'FeatureCollection',
+    features: []
+  }
+
+  let maxAcres = Math.max.apply(Math, features.map(function(o){return o.properties.acres}))
+  let minAcres = Math.min.apply(Math, features.map(function(o){return o.properties.acres}))
+  features = features.map(function(item) {
+    item.properties.relativeArea = Number(((item.properties.acres - minAcres) / (maxAcres - minAcres)).toFixed(5))
+    return item
+  })
+  featureCollection.features = features;
+  featureCollection.features = features.sort(function(a, b) {
+    return (new Date(a.properties.ignitionDate).getTime() - (new Date(b.properties.ignitionDate)).getTime())
+  })
+  return featureCollection
 }
