@@ -1,6 +1,6 @@
 {
   "name": "getmtbs",
-  "version": "0.0.1",
+  "version": "0.5.0",
   "description": "Get MTBS data",
   "main": "getMTBS.js",
   "scripts": {
