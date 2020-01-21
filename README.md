@@ -1,17 +1,29 @@
 ## getMTBS - Retrieve [MTBS](https://www.mtbs.gov/) data in for a given state and a publication year
 
-This utility is under development. Documentation coming soon...
+This utility pulls wildfire severity data from [MTBS](https://www.mtbs.gov/). The data is used to populate the [OregonHOWL](https://oregonhowl.org/?view=wildfires) History of Wildfire Severity spotlight.
 
 ```
 Usage:
-  node getMTBS.js [OPTIONS] [ARGS]
+  getMTBS.js [OPTIONS] [ARGS]
 
-  Options:
-    -s, --state [STRING]   Two letter state code (Default is OR)
-    -y, --year [STRING]    Publication year (Default is 2017)
-    -d, --dest [FILE]      Destination directory (Default is MTBS)
-    -h, --help             Display help and usage details
+Options:
+  -s, --state [STRING]   State (Default is OR)
+  -y, --year [STRING]    Year (Default is 2017)
+  -d, --dest [FILE]      Destination directory (Default is MTBS)
+  -l, --log [STRING]     Log level (Default is info)
+  -m, --max [NUMBER]     Max number of records (for debug only) (Default is Infinity)
+  -h, --help             Display help and usage details
 ```
 #### Examples:
 
-Coming soon...
+```
+node getMTBS.js
+```
+
+Gets data for all wildfires reported in the state of Oregon from 1984 to 2017. The list of wildfires will be saved in the ```./MTBS``` directory in geojson as ```MTBS.json```. In addition, under ```./MTBS/kmz/``` there will be a .kmz file for every wildfire which includes an image overlay with the result of the fire severity analysis conducted by MTBS.
+
+```
+node getMTBS.js -s ID -d MTBS_ID
+```
+
+Gets data for all wildfires reported in the state of Idaho from 1984 to 2017. The list of wildfires will be saved in the ```./MTBS_ID``` directory in geojson as ```MTBS.json```. In addition, under ```./MTBS/kmz/``` there will be a .kmz file for every wildfire which includes an image overlay with the result of the fire severity analysis conducted by MTBS.
