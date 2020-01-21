@@ -17,6 +17,8 @@ const options = cli.parse({
     state: ['s', 'State', 'string', 'OR'],
     year: ['y', 'Year', 'string', '2017'],
     dest: ['d', 'Destination directory', 'file', 'MTBS'],
+    log: ['l', 'Log level', 'string', 'info'],
+    max: ['m', 'Max number of records (for debug only)', 'int', Infinity],
     help: ['h', 'Display help and usage details']
 });
 
@@ -24,10 +26,11 @@ if (options.help) {
   console.log('getMTBS - Get MTBS data\n')
   cli.getUsage()
 } else {
-  doGetMTBS(options.dest, options.year, options.state)
+  log.setLevel(options.log)
+  doGetMTBS(options.dest, options.year, options.state, options.max)
 }
 
-function doGetMTBS (path, year, state) {
+function doGetMTBS (path, year, state, max) {
   log.info(`Getting MTBS data for ${state} as of ${year}`)
 
   fs.removeSync('./' + path + '/kmz')
@@ -35,7 +38,7 @@ function doGetMTBS (path, year, state) {
   retrieveMTBSListOfFires(year, state).then((MTBSListOfFires) => {
     let p = []
     for (let [i, fire] of MTBSListOfFires.entries()) {
-      if (i === 2) break; // Temporary limit
+      if (i === max) break; // Temporary limit
       p.push(new ThrottledPromise((resolve, reject) => {
         retrieveMTBSDetails(fire.year, fire.fireId, path).then(MTBSDetails => {
           resolve(MTBSDetails)
@@ -47,7 +50,7 @@ function doGetMTBS (path, year, state) {
     ThrottledPromise.all(p, MAX_PROMISES).then(values => {
       let destination = './' + path + '/' + 'MTBS.json'
       fs.outputFile(destination, JSON.stringify(buildFeatureCollection(values), null, 2)).then(() => {
-        log.info(destination + ' generated')
+        log.info('Process complete: ' + destination + ' generated')
       }).catch(error => {
         log.fatal(error)
       })
@@ -100,7 +103,7 @@ function retrieveMTBSDetails(year, fireId, path) {
               let kmzFile = directory.files.find(d => d.path.endsWith('.kmz'))
               feature.properties.kmzLink = '/' + kmzFile.path
               processKmzFile(kmzFile, './' + path + '/kmz' + feature.properties.kmzLink).then(() => {
-                log.info(`kmz file ${kmzFile.path} xtracted`)
+                log.debug(`kmz file ${kmzFile.path} xtracted`)
               }).catch(error => {
                 log.fatal(error)
                 return reject(error)
