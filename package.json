@@ -12,6 +12,7 @@
     "axios": "^0.19.1",
     "cli": "^1.0.1",
     "fs-extra": "^8.1.0",
+    "sampleterrain": "^1.0.6",
     "shapefile": "^0.6.6",
     "simple-node-logger": "^18.12.24",
     "throttled-promise": "^1.0.1",

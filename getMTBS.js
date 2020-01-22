@@ -11,6 +11,8 @@ const shapefile = require('shapefile')
 const ThrottledPromise = require('throttled-promise')
 const exec = require('util').promisify(require('child_process').exec)
 
+const sampleterrain = require('sampleterrain')
+
 const MAX_PROMISES = 5
 
 const options = cli.parse({
@@ -48,9 +50,14 @@ function doGetMTBS (path, year, state, max) {
       }))
     }
     ThrottledPromise.all(p, MAX_PROMISES).then(values => {
+      log.info('Adding elevation data...')
       let destination = './' + path + '/' + 'MTBS.json'
-      fs.outputFile(destination, JSON.stringify(buildFeatureCollection(values), null, 2)).then(() => {
-        log.info('Process complete: ' + destination + ' generated')
+      sampleterrain.sample(buildFeatureCollection(values)).then(result => {
+        fs.outputFile(destination, JSON.stringify(result)).then(() => {
+          log.info('Process complete: ' + destination + ' generated')
+        }).catch(error => {
+          log.fatal(error)
+        })
       }).catch(error => {
         log.fatal(error)
       })
