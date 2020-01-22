@@ -1,4 +1,4 @@
-## getMTBS - Retrieve [MTBS](https://www.mtbs.gov/) data in for a given state and a publication year
+## getMTBS - Retrieve [MTBS](https://www.mtbs.gov/) data for a given state and a publication year
 
 This utility pulls wildfire severity data from [MTBS](https://www.mtbs.gov/). The data is used to populate the [OregonHOWL](https://oregonhowl.org/?view=wildfires) History of Wildfire Severity spotlight.
 
