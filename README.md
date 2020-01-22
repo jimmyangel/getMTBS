@@ -2,6 +2,8 @@
 
 This utility pulls wildfire severity data from [MTBS](https://www.mtbs.gov/). The data is used to populate the [OregonHOWL](https://oregonhowl.org/?view=wildfires) History of Wildfire Severity spotlight.
 
+**NOTE:** This utility requires the command "zip" to be available in the system (standard in [macOS](https://ss64.com/osx/zip.html) and [Linux](https://ss64.com/bash/zip.html))
+
 ```
 Usage:
   getMTBS.js [OPTIONS] [ARGS]
