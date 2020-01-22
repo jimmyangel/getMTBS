@@ -2,6 +2,8 @@
 
 This utility pulls wildfire severity data from [MTBS](https://www.mtbs.gov/). The data is used to populate the [OregonHOWL](https://oregonhowl.org/?view=wildfires) History of Wildfire Severity spotlight.
 
+If available, the utility will use a spatial query that uses state boundaries, otherwise, it will pull all the records where the id is prefixed with the state code. Spatial queries should be stored as a GeoServer WFS POST request body.
+
 **NOTE:** This utility requires the command "zip" to be available in the system (standard in [macOS](https://ss64.com/osx/zip.html) and [Linux](https://ss64.com/bash/zip.html))
 
 ```
@@ -14,6 +16,7 @@ Options:
   -d, --dest [FILE]      Destination directory (Default is MTBS)
   -l, --log [STRING]     Log level (Default is info)
   -m, --max [NUMBER]     Max number of records (for debug only) (Default is Infinity)
+  -q, --sq [STRING]      Directory of spatial queries (Default is squeries)
   -h, --help             Display help and usage details
 ```
 #### Examples:
