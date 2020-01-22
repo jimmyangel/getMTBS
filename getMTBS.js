@@ -15,12 +15,15 @@ const sampleterrain = require('sampleterrain')
 
 const MAX_PROMISES = 5
 
+let SQUERIES_DIR
+
 const options = cli.parse({
     state: ['s', 'State', 'string', 'OR'],
     year: ['y', 'Year', 'string', '2017'],
     dest: ['d', 'Destination directory', 'file', 'MTBS'],
     log: ['l', 'Log level', 'string', 'info'],
     max: ['m', 'Max number of records (for debug only)', 'int', Infinity],
+    sq: ['q', 'Directory of spatial queries', 'string', 'squeries'],
     help: ['h', 'Display help and usage details']
 });
 
@@ -29,6 +32,7 @@ if (options.help) {
   cli.getUsage()
 } else {
   log.setLevel(options.log)
+  SQUERIES_DIR = options.sq
   doGetMTBS(options.dest, options.year, options.state, options.max)
 }
 
@@ -63,26 +67,42 @@ function doGetMTBS (path, year, state, max) {
       })
     }).catch(error => {
       log.fatal(error)
-    })
+    }) 
   }).catch(error => {
     log.fatal(error)
   })
 }
 
 function retrieveMTBSListOfFires(year, state) {
-  let MTBSUrl = 'https://edcintl.cr.usgs.gov/geoserver/mtbs/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=mtbs:mtbs_fire_polygons_' +
+  let MTBSUrl = 'https://edcintl.cr.usgs.gov/geoserver/wfs'
+  let MTBSQueryString = '?service=WFS&version=1.1.0&request=GetFeature&typeName=mtbs:mtbs_fire_polygons_' +
     year + '&propertyName=fire_id,year&outputFormat=json&CQL_FILTER=fire_id%20LIKE%20%27' + state + '%25%27'
-  let listData = []
+
   return new Promise((resolve, reject) => {
-    axios.get(MTBSUrl).then(response => {
-      response.data.features.forEach(f => {
-        listData.push({year: f.properties.year, fireId: f.properties.fire_id})
+    fs.readFile(SQUERIES_DIR + '/' + state + '.txt', 'utf8').then(rBody => {
+      log.info('Retrieving list of fires from spatial query')
+      axios.post(MTBSUrl, rBody.replace(/\{\{year\}\}/g, year), {headers: {'Content-Type': 'application/x-www-form-urlencoded'}}).then(response => {
+        resolve(makeListOfFires(response))
+      }).catch(error => {
+        return reject(error)
       })
-      resolve(listData)
     }).catch(error => {
-      return reject(error)
+      log.info('Retrieving list of fires from fire identifier')
+      axios.get(MTBSUrl + MTBSQueryString).then(response => {
+        resolve(makeListOfFires(response))
+      }).catch(error => {
+        return reject(error)
+      })
     })
   })
+}
+
+function makeListOfFires(apiResponse) {
+  let listData = []
+  apiResponse.data.features.forEach(f => {
+    listData.push({year: f.properties.year, fireId: f.properties.fire_id})
+  })
+  return listData
 }
 
 function retrieveMTBSDetails(year, fireId, path) {
