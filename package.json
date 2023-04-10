@@ -17,6 +17,6 @@
     "simple-node-logger": "^18.12.24",
     "throttled-promise": "^1.0.1",
     "unzipper": "^0.10.5",
-    "xml2js": "^0.4.23"
+    "xml2js": "^0.5.0"
   }
 }
